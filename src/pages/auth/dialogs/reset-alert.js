@@ -5,28 +5,24 @@ import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
-import PromiseButton from '../../../components/PromiseButton';
 
-export default function({ show, onSuccess, onClose }) {
+export default function({ show, onClose }) {
   return (
     <div>
       <Dialog
         open={show}
         onClose={onClose}
       >
-        <DialogTitle>Are you sure</DialogTitle>
+        <DialogTitle>Success</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Mark you profile not visible?
+            Your password has been successfully reset. You can now login with the new password.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose} color="primary">
-            Cancel
+            Done
           </Button>
-          <PromiseButton onClick={onSuccess} color="primary">
-            Yes
-          </PromiseButton>
         </DialogActions>
       </Dialog>
     </div>

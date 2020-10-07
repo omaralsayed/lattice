@@ -4,7 +4,16 @@ import { Container, Button } from "@material-ui/core";
 
 import { useProfile } from "../../providers/ProfileProvider";
 import { useProfileList } from "../../providers/ProfileListProvider";
+import { useMatch } from "../../providers/MatchProvider";
+import Spinner from "../../components/Spinner";
+import useDialogControl from '../../components/DialogControl.hook';
+import HomeTour from '../../tours/HomeTour';
+import ResetTour from "../../tours/ResetTour";
 import Deck from "./Deck";
+import ResetConfirmation from './dialogs/reset-confirmation';
+import ResetAlert from './dialogs/reset-alert';
+import ToggleVisibilityConfirmation from './dialogs/toggle-visibility-confirmation';
+import ToggleVisibilityAlert from './dialogs/toggle-visibility-alert';
 
 export default function () {
   const profileState = useProfile();
@@ -13,18 +22,18 @@ export default function () {
   const [ hydratedProfiles, setHydratedProfiles ] = useState();
 
   const { profile } = profileState;
-  const { skills, profiles } = profileListState;
+  const { isLoading, skills, profiles } = profileListState;
 
   useEffect(() => {
     if(skills.length) {
-      const hydratedProiles = profiles.map(profile => {
+      const hydratedProfiles = profiles.map(profile => {
         const profileSkills = skills.filter(skill => profile?.skills?.includes(skill.title));
         const profileLookingFor = skills.filter(skill => profile?.lookingFor?.includes(skill.title));
     
         return { ...profile, skills: profileSkills, lookingFor: profileLookingFor };
       });
 
-      setHydratedProfiles(hydratedProiles);
+      setHydratedProfiles(hydratedProfiles);
     }
   }, [ profiles, skills ]);
 
@@ -35,12 +44,16 @@ export default function () {
       <ResetText />
       <ErrorText />
 
-      {profile?.visible && !!hydratedProfiles?.length &&
-        <Deck data={hydratedProfiles} />
+      {profile?.visible && !isLoading && !!hydratedProfiles?.length &&
+        <>
+          <Deck data={hydratedProfiles} />
+          <HomeTour />
+        </>
       }
+
     </>
   );
-}
+};
 
 function TextBox({ children }) {
   return <Container className="nav-bar-margin">
@@ -48,13 +61,13 @@ function TextBox({ children }) {
       {children}
     </div>
   </Container>;
-}
+};
 
 function SetupText() {
-  const { isLoading, profile } = useProfile();
+  const { isLoading, failedToLoad, profile } = useProfile();
 
   return (
-    !isLoading ? (
+    (!isLoading && !failedToLoad) ? (
       !profile.started ? 
       <TextBox>
         Welcome! Let's get you set up. Head over to your <Link to="/profile/edit">profile page</Link> to get started.
@@ -80,32 +93,87 @@ function LoadingText() {
   return (
     profileState.isLoading ?
     <TextBox>
-      Fetching your profile...
+      Fetching your profile... <br /> <Spinner />
     </TextBox> :
 
     profileListState.isLoading ?
     <TextBox>
-      Finding the best hackers for you...
+      Finding the best hackers for you... <br /> <Spinner />
     </TextBox> : null
   );
 };
 
 function ResetText() {
+  const { profile, toggleVisibility } = useProfile();
   const { isLoading, profiles } = useProfileList();
+  const { reset } = useMatch();
+
+  const resetConfirmationDialog = useDialogControl();
+  const resetAlertDialog = useDialogControl();
+  const toggleVisibilityConfirmationDialog = useDialogControl();
+  const toggleVisibilityAlertDialog = useDialogControl();
+
+  const onReset = async () => {
+    await reset();
+    resetConfirmationDialog.dismiss();
+    resetAlertDialog.open();
+  };
+
+  const onToggleVisibility = async () => {
+    await toggleVisibility();
+    toggleVisibilityConfirmationDialog.dismiss();
+    toggleVisibilityAlertDialog.open();
+  };
 
   return (
-    (!isLoading && !profiles.length) ?
-    <TextBox>
-      <p>
-        That's everybody! If you still haven't found your teammates, you can reset all your left swipes and start over.
-      </p>
-      <Button variant="contained" color="primary">Reset</Button>
+    (profile?.visible && !isLoading && !profiles.length) ?
+    <>
+      <TextBox>
+        <p>
+          That's everybody! If you still haven't found your teammates, you can reset all your left swipes and start over.
+        </p>
+        <Button
+          className="reset-button"
+          variant="contained"
+          color="primary"
+          onClick={resetConfirmationDialog.open}
+        >Reset</Button>
 
-      <p>
-        Or if you have already found your teammates, you can mark your profile as not visible.
-      </p>
-      <Button variant="contained" color="primary">Mark not visible</Button>
-    </TextBox> : null
+        <p>
+          Or if you have already found your teammates, you can mark your profile as not visible.
+        </p>
+        <Button
+          className="mark-not-visibile-button"
+          variant="contained"
+          color="primary"
+          onClick={toggleVisibilityConfirmationDialog.open}
+        >Mark not visible</Button>
+
+        <p className="wait-text">
+          Or you can just wait for more people to join Lattice!
+        </p>
+
+        <ResetTour />
+      </TextBox>
+      <ResetConfirmation
+        show={resetConfirmationDialog.show}
+        onClose={resetConfirmationDialog.dismiss}
+        onSuccess={onReset}
+      />
+      <ResetAlert
+        show={resetAlertDialog.show}
+        onClose={resetAlertDialog.dismiss}
+      />
+      <ToggleVisibilityConfirmation
+        show={toggleVisibilityConfirmationDialog.show}
+        onClose={toggleVisibilityConfirmationDialog.dismiss}
+        onSuccess={onToggleVisibility}
+      />
+      <ToggleVisibilityAlert
+        show={toggleVisibilityAlertDialog.show}
+        onClose={toggleVisibilityAlertDialog.dismiss}
+      />
+    </>: null
   );
 };
 
@@ -116,14 +184,14 @@ function ErrorText() {
   return (
     profileState.failedToLoad ?
     <TextBox>
-      There was an error fetching your profile
-      <Button variant="contained" color="primary">Retry</Button>
+      There was an error fetching your profile <br />
+      <Button variant="contained" color="primary" onClick={profileState.getProfile}>Retry</Button>
     </TextBox> :
 
     profileListState.failedToLoad ?
     <TextBox>
-      There was an error fetching hackers
-      <Button variant="contained" color="primary">Retry</Button>
+      There was an error fetching hackers <br />
+      <Button variant="contained" color="primary" onClick={profileListState.getProfiles}>Retry</Button>
     </TextBox> : null
   );
 };
